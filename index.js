@@ -134,12 +134,7 @@ GoogleContacts.prototype._post = function (params, cb) {
                 }
                 try {
                     debug(data);
-                    var parser = new xml2js.Parser();
-                    parser.parseString(data, function(err, json){
-                        if(err) return cb(err)
-
-                        cb(null, json);
-                    });
+                    parseXml(data, cb);
                 }
                 catch (err) {
                     cb(err);
@@ -149,6 +144,15 @@ GoogleContacts.prototype._post = function (params, cb) {
 
     req.write(params.post);
     req.end();
+
+    function parseXml(data, cb){
+        var parser = new xml2js.Parser();
+        parser.parseString(data, function(err, json){
+            if(err) return cb(err)
+
+            cb(null, json);
+        });
+    }
 };
 
 GoogleContacts.prototype.getContacts = function (cb, params) {
