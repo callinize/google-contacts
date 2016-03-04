@@ -204,7 +204,7 @@ GoogleContacts.prototype.getContact = function (cb, params) {
 /**
  * Receives an object with @layout and create the contact.
  * Unfortunately google apps do not support contact payload in json
- * format, so we have to convert the object in xml.
+ * format, so we have to convert the object to xml.
  *
  * @see https://developers.google.com/google-apps/contacts/v3/#creating_contacts
  *
@@ -235,7 +235,7 @@ GoogleContacts.prototype.createContact = function (cb, params) {
         return cb("No name found in params");
     }
 
-    var gContact = _getGoogleContactObject(params.entry);
+    var gContact = self._getGoogleContactObject(params.entry);
 
     var builder = new xml2js.Builder({rootName:'entry'});
     params.post = builder.buildObject(gContact);
@@ -246,94 +246,6 @@ GoogleContacts.prototype.createContact = function (cb, params) {
         if (err) return cb(err);
 
         cb(null, contact);
-    }
-
-    function _addPrefix(obj, prefix){
-        var prefixedObj = {};
-        _.forOwn(obj, function(value, key){
-            if(_.includes(['name', 'email', 'phoneNumber'], key))
-                key = prefix + key;
-
-            prefixedObj[key] = value;
-        });
-
-        return prefixedObj;
-    }
-
-    function _getSchema(schemaName, rootSchema){
-        if(rootSchema)
-            schemaName = rootSchema + '.' + schemaName;
-
-        var schemas = {
-            'xmlns': "http://www.w3.org/2005/Atom",
-            'gd': "http://schemas.google.com/g/2005",
-            'gContact' : "xmlns:gContact='http://schemas.google.com/contact/2008'",
-            'scheme': "http://schemas.google.com/g/2005#kind",
-            'term': "http://schemas.google.com/contact/2008#contact",
-            email:{
-                'work': "http://schemas.google.com/g/2005#work",
-                'home': "http://schemas.google.com/g/2005#home"
-            },
-            phone: {
-                'work': "http://schemas.google.com/g/2005#work",
-                'home': "http://schemas.google.com/g/2005#home",
-                'main': "http://schemas.google.com/g/2005#main",
-                'work_fax': "http://schemas.google.com/g/2005#work_fax",
-                'home_fax': "http://schemas.google.com/g/2005#home_fax",
-                'pager': "http://schemas.google.com/g/2005#pager"
-            }
-        };
-
-        return _.get(schemas, schemaName, '');
-    }
-
-    function _getGoogleContactObject(params){
-        var prefix = params.prefix || 'gd:';
-        var root = {
-            $: {
-                'xmlns': _getSchema('xmlns'),
-                'xmlns:gd': _getSchema('gd'),
-                'xmlns:gContact': _getSchema('gContact')
-            },
-            category: {
-                $: {
-                    'scheme' : _getSchema('scheme'),
-                    'term' : _getSchema('term')
-                }
-            }
-        };
-
-
-        root.name = {
-            $: {xmlns: _getSchema('gd') }
-        }
-
-        if(_.has(params, 'name.fullName')) root.name.fullName = params.name.fullName;
-        if(_.has(params, 'name.givenName')) root.name.fullName = params.name.givenName;
-        if(_.has(params, 'name.familyName')) root.name.fullName = params.name.familyName;
-
-        root.title = _.get(params, 'title', '');
-        root.content = _.get(params, 'content', '');
-
-        if(_.has(params, 'email')){
-            root.email = [];
-            if(!_.isArray(params.email)) params.email = [params.email];
-
-            _.each(params.email, function(m){
-                root.email.push({$: {primary: _.get(m, 'primary', false), address: _.get(m, 'address', ''), rel: _getSchema(_.get(m, 'type', 'work'), 'email')}});
-            });
-        }
-
-        if(_.has(params, 'phoneNumber')){
-            root.phoneNumber = [];
-            if(!_.isArray(params.phoneNumber)) params.phoneNumber = [params.phoneNumber];
-
-            _.each(params.phoneNumber, function(p){
-                root.phoneNumber.push({$: {rel: _getSchema(_.get(p, 'type', 'work'), 'phone')}, "_": _.get(p, 'phoneNumber', '')});
-            });
-        }
-
-        return _addPrefix(root, prefix);
     }
 };
 
@@ -442,5 +354,94 @@ GoogleContacts.prototype.refreshAccessToken = function (refreshToken, params, cb
     req.write(body);
     req.end();
 };
+
+GoogleContacts.prototype._getGoogleContactObject = function(params){
+    var prefix = params.prefix || 'gd:';
+    var root = {
+        $: {
+            'xmlns': _getSchema('xmlns'),
+            'xmlns:gd': _getSchema('gd'),
+            'xmlns:gContact': _getSchema('gContact')
+        },
+        category: {
+            $: {
+                'scheme' : _getSchema('scheme'),
+                'term' : _getSchema('term')
+            }
+        }
+    };
+
+
+    root.name = {
+        $: {xmlns: _getSchema('gd') }
+    }
+
+    if(_.has(params, 'name.fullName')) root.name.fullName = params.name.fullName;
+    if(_.has(params, 'name.givenName')) root.name.fullName = params.name.givenName;
+    if(_.has(params, 'name.familyName')) root.name.fullName = params.name.familyName;
+
+    root.title = _.get(params, 'title', '');
+    root.content = _.get(params, 'content', '');
+
+    if(_.has(params, 'email')){
+        root.email = [];
+        if(!_.isArray(params.email)) params.email = [params.email];
+
+        _.each(params.email, function(m){
+            root.email.push({$: {primary: _.get(m, 'primary', false), address: _.get(m, 'address', ''), rel: _getSchema(_.get(m, 'type', 'work'), 'email')}});
+        });
+    }
+
+    if(_.has(params, 'phoneNumber')){
+        root.phoneNumber = [];
+        if(!_.isArray(params.phoneNumber)) params.phoneNumber = [params.phoneNumber];
+
+        _.each(params.phoneNumber, function(p){
+            root.phoneNumber.push({$: {rel: _getSchema(_.get(p, 'type', 'work'), 'phone')}, "_": _.get(p, 'phoneNumber', '')});
+        });
+    }
+
+    return _addPrefix(root, prefix);
+
+
+    function _addPrefix(obj, prefix){
+        var prefixedObj = {};
+        _.forOwn(obj, function(value, key){
+            if(_.includes(['name', 'email', 'phoneNumber'], key))
+                key = prefix + key;
+
+            prefixedObj[key] = value;
+        });
+
+        return prefixedObj;
+    }
+
+    function _getSchema(schemaName, rootSchema){
+        if(rootSchema)
+            schemaName = rootSchema + '.' + schemaName;
+
+        var schemas = {
+            'xmlns': "http://www.w3.org/2005/Atom",
+            'gd': "http://schemas.google.com/g/2005",
+            'gContact' : "xmlns:gContact='http://schemas.google.com/contact/2008'",
+            'scheme': "http://schemas.google.com/g/2005#kind",
+            'term': "http://schemas.google.com/contact/2008#contact",
+            email:{
+                'work': "http://schemas.google.com/g/2005#work",
+                'home': "http://schemas.google.com/g/2005#home"
+            },
+            phone: {
+                'work': "http://schemas.google.com/g/2005#work",
+                'home': "http://schemas.google.com/g/2005#home",
+                'main': "http://schemas.google.com/g/2005#main",
+                'work_fax': "http://schemas.google.com/g/2005#work_fax",
+                'home_fax': "http://schemas.google.com/g/2005#home_fax",
+                'pager': "http://schemas.google.com/g/2005#pager"
+            }
+        };
+
+        return _.get(schemas, schemaName, '');
+    }
+}
 
 exports.GoogleContacts = GoogleContacts;
