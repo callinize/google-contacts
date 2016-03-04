@@ -417,6 +417,7 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
             };
 
             if(_.has(m, 'primary')) newEmail.$.primary = _.get(m, 'primary');
+            if(_.has(m, 'label')) newEmail.$.label = _.get(m, 'label');
             if(_.has(m, 'type')) newEmail.$.rel = _getSchema(_.get(m, 'type'), 'email');
             if(_.has(m, 'rel')) newEmail.$.rel = _.get(m, 'rel');
 
@@ -434,7 +435,7 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
                 $: {}
             };
 
-            if(_.has(p, 'primary')) newPhone.$.label = _.get(p, 'label');
+            if(_.has(p, 'primary')) newPhone.$.label = _.get(p, 'primary');
             if(_.has(p, 'label')) newPhone.$.label = _.get(p, 'label');
             if(_.has(p, 'type')) newPhone.$.rel = _getSchema(_.get(p, 'type'), 'phone');
             if(_.has(p, 'rel')) newPhone.$.rel = _.get(p, 'rel');
