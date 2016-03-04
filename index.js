@@ -235,10 +235,6 @@ GoogleContacts.prototype.createContact = function (cb, params) {
         return cb("No name found in params");
     }
 
-    if(!_.has(params, 'entry.email') && !_.has(params, 'phoneNumber')){
-        return cb("No email or phoneNumber found in params");
-    }
-
     var gContact = _getGoogleContactObject(params.entry);
 
     var builder = new xml2js.Builder({rootName:'entry'});
