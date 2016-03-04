@@ -410,7 +410,17 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
         if(!_.isArray(params.email)) params.email = [params.email];
 
         _.each(params.email, function(m){
-            root.email.push({$: {primary: _.get(m, 'primary', false), address: _.get(m, 'address', ''), rel: _getSchema(_.get(m, 'type', 'work'), 'email')}});
+            var newEmail = {
+                $:{
+                    address: _.get(m, 'address', '')
+                }
+            };
+
+            if(_.has(m, 'primary')) newEmail.$.primary = _.get(m, 'primary');
+            if(_.has(m, 'type')) newEmail.$.rel = _getSchema(_.get(m, 'type'), 'email');
+            if(_.has(m, 'rel')) newEmail.$.rel = _.get(m, 'rel');
+
+            root.email.push(newEmail);
         });
     }
 
@@ -419,12 +429,21 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
         if(!_.isArray(params.phoneNumber)) params.phoneNumber = [params.phoneNumber];
 
         _.each(params.phoneNumber, function(p){
-            root.phoneNumber.push({$: {rel: _getSchema(_.get(p, 'type', 'work'), 'phone')}, "_": _.get(p, 'phoneNumber', '')});
+            var newPhone = {
+                _: _.get(p, 'phoneNumber', ''),
+                $: {}
+            };
+
+            if(_.has(p, 'primary')) newPhone.$.label = _.get(p, 'label');
+            if(_.has(p, 'label')) newPhone.$.label = _.get(p, 'label');
+            if(_.has(p, 'type')) newPhone.$.rel = _getSchema(_.get(p, 'type'), 'phone');
+            if(_.has(p, 'rel')) newPhone.$.rel = _.get(p, 'rel');
+
+            root.phoneNumber.push(newPhone);
         });
     }
 
     return _addPrefix(root, prefix);
-
 
     function _getSchema(schemaName, rootSchema){
         if(rootSchema)
