@@ -46,72 +46,30 @@ GoogleContacts.prototype = {};
 
 util.inherits(GoogleContacts, EventEmitter);
 
-GoogleContacts.prototype._get = function (params, cb) {
+GoogleContacts.prototype._request = function (params, cb) {
     if (typeof params === 'function') {
         cb = params;
         params = {};
     }
 
-    var req = {
+    params.method = params.method || 'GET';
+
+    var isGet = params.method === 'GET';
+
+    var opts = {
         host: 'www.google.com',
         port: 443,
         path: this._buildPath(params),
-        method: 'GET',
+        method: params.method || 'GET',
         headers: {
             'Authorization': 'OAuth ' + this.token,
             'GData-Version': 3
         }
     };
 
-    debug(req);
-
-    https.request(req, function (res) {
-            var data = '';
-
-            res.on('data', function (chunk) {
-                debug('got ' + chunk.length + ' bytes');
-                data += chunk.toString('utf-8');
-            });
-
-            res.on('error', function (err) {
-                cb(err);
-            });
-
-            res.on('end', function () {
-                if (res.statusCode < 200 || res.statusCode >= 300) {
-                    var error = new Error('Bad client request status: ' + res.statusCode);
-                    return cb(error);
-                }
-                try {
-                    debug(data);
-                    cb(null, JSON.parse(data));
-                }
-                catch (err) {
-                    cb(err);
-                }
-            });
-        })
-        .on('error', cb)
-        .end();
-};
-
-GoogleContacts.prototype._post = function (params, cb) {
-    if (typeof params === 'function') {
-        cb = params;
-        params = {};
+    if(!isGet){
+        opts.headers['content-type'] = 'application/atom+xml';
     }
-
-    var opts = {
-        host: 'www.google.com',
-        port: 443,
-        path: this._buildPath(params, true),
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + this.token,
-            'GData-Version': 3,
-            'content-type': 'application/atom+xml',
-        }
-    };
 
     debug(req);
 
@@ -134,31 +92,40 @@ GoogleContacts.prototype._post = function (params, cb) {
                 }
                 try {
                     debug(data);
-                    parseXml(data, cb);
+                    if(isGet) parseJSON(data, cb);
+                    else parseXML(data, cb);
                 }
                 catch (err) {
                     cb(err);
                 }
             });
-        });
+        })
 
-    req.write(params.post);
+    if(!isGet){
+        req.write(params.body);
+    }
+
     req.end();
 
-    function parseXml(data, cb){
+    function parseXML(data, cb){
         var parser = new xml2js.Parser();
         parser.parseString(data, function(err, json){
-            if(err) return cb(err)
+            if(err) return cb(err);
 
             cb(null, json);
         });
+    }
+
+    function parseJSON(data, cb){
+        cb(null, JSON.parse(data));
     }
 };
 
 GoogleContacts.prototype.getContacts = function (cb, params) {
     var self = this;
 
-    this._get(_.extend({type: 'contacts'}, params, this.params), receivedContacts);
+    this._request(_.extend({type: 'contacts', method: 'GET'}, params, this.params), receivedContacts);
+
     function receivedContacts(err, data) {
         if (err) return cb(err);
 
@@ -175,7 +142,7 @@ GoogleContacts.prototype.getContacts = function (cb, params) {
             if (link.rel === 'next') {
                 next = true;
                 var path = url.parse(link.href).path;
-                self._get({path: path}, receivedContacts);
+                self._request({path: path}, receivedContacts);
             }
         });
         if (!next) {
@@ -191,7 +158,7 @@ GoogleContacts.prototype.getContact = function (cb, params) {
         return cb("No id found in params");
     }
 
-    this._get(_.extend({type: 'contacts'}, this.params, params), receivedContact);
+    this._request(_.extend({type: 'contacts', method: 'GET'}, this.params, params), receivedContact);
 
     function receivedContact(err, contact) {
         if (err) return cb(err);
@@ -238,9 +205,9 @@ GoogleContacts.prototype.createContact = function (cb, params) {
     var gContact = self._getGoogleContactObject(params.entry);
 
     var builder = new xml2js.Builder({rootName:'entry'});
-    params.post = builder.buildObject(gContact);
+    params.body = builder.buildObject(gContact);
 
-    this._post(_.extend({type: 'contacts'}, this.params, params), receivedContact);
+    this._request(_.extend({type: 'contacts', method: 'POST'}, this.params, params), receivedContact);
 
     function receivedContact(err, contact) {
         if (err) return cb(err);
@@ -268,7 +235,7 @@ GoogleContacts.prototype._saveContactsFromFeed = function (feed) {
     });
 };
 
-GoogleContacts.prototype._buildPath = function (params, isPost) {
+GoogleContacts.prototype._buildPath = function (params) {
     if (params.path) return params.path;
 
     params = _.extend({}, params, this.params);
@@ -295,7 +262,7 @@ GoogleContacts.prototype._buildPath = function (params, isPost) {
     path += params.email + '/';
     path += params.projection;
     if(params.id) path +=  '/'+ params.id;
-    if (!isPost) path += '?' + qs.stringify(query);
+    if (params.method === "GET") path += '?' + qs.stringify(query);
 
     return path;
 };
