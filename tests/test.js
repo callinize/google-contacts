@@ -13,14 +13,12 @@ var c = new GoogleContacts({
 c.getContacts(function (err, contacts) {
   if (err) throw err;
   assert.ok(typeof contacts === 'object', 'Contacts is not an object');
-  console.log(contacts);
   contactsTested = true;
 });
 
 c.getContact(function (err, contact) {
   if (err) throw err;
   assert.ok(typeof contact === 'object', 'Contact is not an object');
-  console.log(contact);
   contactTested = true;
 }, {id: process.env.GOOGLE_CONTACT_ID});
 
@@ -52,4 +50,6 @@ process.on('exit', function () {
   if (!contactsTested || !contactTested || !contactCreated) {
     throw new Error('contact test failed');
   }
+
+  console.log("all tests passed");
 });
