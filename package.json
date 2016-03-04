@@ -1,6 +1,6 @@
 {
   "name": "google-contacts",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "API wrapper for Google Contacts",
   "main": "index.js",
   "directories": {
@@ -20,7 +20,8 @@
   ],
   "dependencies": {
     "debug": "^2.2.0",
-    "lodash": "^4.5.1"
+    "lodash": "^4.5.1",
+    "xml2js": "^0.4.16"
   },
   "author": "Ajnasz <ajnasz@ajnasz.hu>",
   "license": "MIT"
