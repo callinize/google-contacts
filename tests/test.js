@@ -2,9 +2,13 @@
 /*global require: true, console: true */
 var GoogleContacts = require('../').GoogleContacts;
 var assert = require('assert');
-var contactsTested = false;
-var contactTested = false;
-var contactCreated = false;
+var contactsTested = false,
+    contactTested = false,
+    contactCreated = false,
+    contactUpdated = false;
+
+console.log('Test running with Google contact Id: %s and token: %s ',
+    process.env.GOOGLE_CONTACT_ID || 'NONE', process.env.GOOGLE_TOKEN || 'NONE');
 
 var c = new GoogleContacts({
   token: process.env.GOOGLE_TOKEN
@@ -20,9 +24,9 @@ c.getContact(function (err, contact) {
   if (err) throw err;
   assert.ok(typeof contact === 'object', 'Contact is not an object');
   contactTested = true;
-}, {id: process.env.GOOGLE_CONTACT_ID});
+}, {entry: {id: process.env.GOOGLE_CONTACT_ID}});
 
-var contactToCreate = {
+var contact = {
   entry: {
     name: {
       fullName: 'foo bar'
@@ -39,15 +43,21 @@ var contactToCreate = {
   }
 };
 
-c.createContact(function (err, contact) {
+c.createContact(function (err, createdContact) {
   if (err) throw err;
-  assert.ok(typeof contact === 'object', 'Contact is not an object');
+  assert.ok(typeof createdContact === 'object', 'Contact is not an object');
   contactCreated = true;
-}, contactToCreate);
+}, contact);
 
+contact.entry.id = process.env.GOOGLE_CONTACT_ID;
+c.updateContact(function (err, updatedContact) {
+  if (err) throw err;
+  assert.ok(typeof updatedContact === 'object', 'Contact is not an object');
+  contactUpdated   = true;
+}, contact);
 
 process.on('exit', function () {
-  if (!contactsTested || !contactTested || !contactCreated) {
+  if (!contactsTested || !contactTested || !contactCreated || !contactUpdated) {
     throw new Error('contact test failed');
   }
 
