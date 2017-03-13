@@ -23,7 +23,9 @@ var EventEmitter = require('events').EventEmitter,
     url = require('url'),
     https = require('https'),
     debug = require('debug')('google-contacts'),
-    xml2js = require('xml2js');
+    xml2js = require('xml2js'),
+    GD_PREFIX = 'gd:',
+    G_CONTACT_PREFIX = 'gContact:';
 
 var GoogleContacts = function (params) {
     if (typeof params === 'string') {
@@ -378,7 +380,7 @@ GoogleContacts.prototype.refreshAccessToken = function (refreshToken, params, cb
 };
 
 GoogleContacts.prototype._getGoogleContactObject = function(params){
-    var prefix = params.prefix || 'gd:';
+    var prefix = params.prefix || GD_PREFIX;
     var root = {
         $: {
             'xmlns': _getSchema('xmlns'),
@@ -404,6 +406,9 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
     if(_.has(params, 'name.familyName')) root.name.familyName = _.get(params, 'name.familyName');
     if(_.has(params, 'content')) root.content = _.get(params, 'content');
     if(_.has(params, 'title')) root.title = _.get(params, 'title');
+    if(_.has(params, 'nickname')) root.nickname = _.get(params, 'nickname', '');
+    if(_.has(params, 'fileAs')) root.fileAs = _.get(params, 'fileAs', '');
+    if(_.has(params, 'birthday')) root.birthday = { $: {when: _.get(params, 'birthday', '')}};
 
     if(_.has(params, 'email')){
         root.email = [];
@@ -435,12 +440,140 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
                 $: {}
             };
 
-            if(_.has(p, 'primary')) newPhone.$.label = _.get(p, 'primary');
             if(_.has(p, 'label')) newPhone.$.label = _.get(p, 'label');
             if(_.has(p, 'type')) newPhone.$.rel = _getSchema(_.get(p, 'type'), 'phone');
             if(_.has(p, 'rel')) newPhone.$.rel = _.get(p, 'rel');
 
             root.phoneNumber.push(newPhone);
+        });
+    }
+
+    if (_.has(params, 'organization')) {
+        if(!_.isArray(params.organization)) params.organization = [params.organization];
+
+        root.organization = _.map(params.organization, function(o){
+            var org = {
+                $: {},
+                orgName: _.get(o, 'orgName', ''),
+                orgTitle: _.get(o, 'orgTitle', '')
+            };
+
+            if(_.has(o, 'type')) org.$.rel = _.get(o, 'type');
+            if(_.has(o, 'rel')) org.$.rel = _.get(o, 'rel');
+
+            return _addPrefix(org, prefix);
+        });
+    }
+
+    if (_.has(params, 'structuredPostalAddress')) {
+        if (!_.isArray(params.structuredPostalAddress)) params.structuredPostalAddress = [params.structuredPostalAddress];
+
+        root.structuredPostalAddress = _.map(params.structuredPostalAddress, function (a) {
+            var address = {
+                $: {},
+                formattedAddress: _.get(a, 'formattedAddress', '')
+            };
+
+            if(_.has(a, 'label')) address.$.label = _.get(a, 'label');
+            if(_.has(a, 'type')) address.$.rel = _getSchema(_.get(a, 'type'), 'address');
+            if(_.has(a, 'rel')) address.$.rel = _getSchema(_.get(a, 'rel'), 'address');
+            
+            return _addPrefix(address, prefix);
+        });
+    }
+
+    if (_.has(params, 'userDefinedField')) {
+        if (!_.isArray(params.userDefinedField)) params.userDefinedField = [params.userDefinedField];
+        root.userDefinedField = _.map(params.userDefinedField, function (field) {
+            return {
+                $: {
+                    key: field.key,
+                    value: field.value
+                }
+            };
+        });
+    }
+
+    if (_.has(params, 'event')) {
+        if (!_.isArray(params.event)) params.event = [params.event];
+        root.event = _.map(params.event, function (event) {
+            var evt = {
+                $:{},
+                when: {
+                    $: {startTime: _.get(event, 'when', '')}
+                }
+            };
+
+            if(_.has(event, 'label')) evt.$.label = event.label;
+            if(_.has(event, 'type')) evt.$.rel = event.type;
+            if(_.has(event, 'rel')) evt.$.rel = event.rel;
+
+            return _addPrefix(evt, prefix);
+        });
+    }
+
+    if (_.has(params, 'relation')) {
+        if (!_.isArray(params.relation)) params.relation = [params.relation];
+        root.relation = _.map(params.relation, function (relation) {
+            var rel = {
+                $:{},
+                _: _.get(relation, 'relation', '')
+            };
+
+            if(_.has(relation, 'label')) rel.$.label = relation.label;
+            if(_.has(relation, 'type')) rel.$.rel = relation.type;
+            if(_.has(relation, 'rel')) rel.$.rel = relation.rel;
+
+            return rel;
+        });
+    }
+
+    if (_.has(params, 'website')) {
+        if (!_.isArray(params.website)) params.website = [params.website];
+        root.website = _.map(params.website, function (website) {
+            var web = {
+                $:{
+                    href: _.get(website, 'href', '')
+                }
+            };
+
+            if(_.has(website, 'primary')) web.$.primary = website.primary;
+            if(_.has(website, 'label')) web.$.label = website.label;
+            if(_.has(website, 'type')) web.$.rel = website.type;
+            if(_.has(website, 'rel')) web.$.rel = website.rel;
+
+            return web;
+        });
+    }
+
+    if (_.has(params, 'im')) {
+        if (!_.isArray(params.im)) params.im = [params.im];
+        root.im = _.map(params.im, function (im) {
+            var ob = {
+                $:{
+                    address: _.get(im, 'address', '')
+                }
+            };
+
+            if(_.has(im, 'protocol')) ob.$.protocol = im.protocol;
+            if(_.has(im, 'label')) ob.$.label = im.label;
+            if(_.has(im, 'type')) ob.$.rel = im.type;
+            if(_.has(im, 'rel')) ob.$.rel = im.rel;
+
+            return ob;
+        });
+    }
+
+    if (_.has(params, 'groupMembershipInfo')) {
+        if (!_.isArray(params.groupMembershipInfo)) params.groupMembershipInfo = [params.groupMembershipInfo];
+        root.groupMembershipInfo = _.map(params.groupMembershipInfo, function (membershipInfo) {
+            var info = {
+                $: { href: _.get(membershipInfo, 'href', '') }
+            };
+
+            if(_.has(membershipInfo, 'deleted')) info.$.deleted = membershipInfo.deleted;
+
+            return ob;
         });
     }
 
@@ -453,20 +586,28 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
         var schemas = {
             'xmlns': "http://www.w3.org/2005/Atom",
             'gd': "http://schemas.google.com/g/2005",
-            'gContact' : "xmlns:gContact='http://schemas.google.com/contact/2008'",
+            'gContact' : "http://schemas.google.com/contact/2008",
             'scheme': "http://schemas.google.com/g/2005#kind",
             'term': "http://schemas.google.com/contact/2008#contact",
             email:{
+                'other': "http://schemas.google.com/g/2005#other",
                 'work': "http://schemas.google.com/g/2005#work",
                 'home': "http://schemas.google.com/g/2005#home"
             },
             phone: {
+                'other': "http://schemas.google.com/g/2005#other",
                 'work': "http://schemas.google.com/g/2005#work",
+                'mobile': "http://schemas.google.com/g/2005#mobile",
                 'home': "http://schemas.google.com/g/2005#home",
                 'main': "http://schemas.google.com/g/2005#main",
                 'work_fax': "http://schemas.google.com/g/2005#work_fax",
                 'home_fax': "http://schemas.google.com/g/2005#home_fax",
                 'pager': "http://schemas.google.com/g/2005#pager"
+            },
+            address: {
+                'other': "http://schemas.google.com/g/2005#other",
+                'work': "http://schemas.google.com/g/2005#work",
+                'home': "http://schemas.google.com/g/2005#home"
             }
         };
 
@@ -476,8 +617,11 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
     function _addPrefix(obj, prefix){
         var prefixedObj = {};
         _.forOwn(obj, function(value, key){
-            if(_.includes(['name', 'email', 'phoneNumber'], key))
+            if(_.includes(['name', 'email', 'phoneNumber', 'organization', 'orgName', 'orgTitle', 'structuredPostalAddress', 'formattedAddress', 'when'], key)) {
                 key = prefix + key;
+            } else if(_.includes(['nickname', 'userDefinedField', 'fileAs', 'birthday', 'event', 'relation', 'website', 'im', 'groupMembershipInfo'], key)) {
+                key = G_CONTACT_PREFIX + key;
+            }
 
             prefixedObj[key] = value;
         });
