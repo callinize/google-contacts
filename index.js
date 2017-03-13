@@ -573,7 +573,7 @@ GoogleContacts.prototype._getGoogleContactObject = function(params){
 
             if(_.has(membershipInfo, 'deleted')) info.$.deleted = membershipInfo.deleted;
 
-            return ob;
+            return info;
         });
     }
 
